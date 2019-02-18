@@ -1,10 +1,8 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
  * @format
  * @flow
@@ -23,13 +21,13 @@ const ContentBlock = require('ContentBlock');
 const ContentBlockNode = require('ContentBlockNode');
 const DefaultDraftBlockRenderMap = require('DefaultDraftBlockRenderMap');
 const DraftEntity = require('DraftEntity');
-const {List, Map, OrderedSet} = require('immutable');
 const URI = require('URI');
 
 const cx = require('cx');
 const generateRandomKey = require('generateRandomKey');
 const getSafeBodyFromHTML = require('getSafeBodyFromHTML');
 const gkx = require('gkx');
+const {List, Map, OrderedSet} = require('immutable');
 
 const experimentalTreeDataSupport = gkx('draft_tree_data_support');
 
@@ -68,6 +66,7 @@ const HTMLTagToInlineStyleMap: Map<string, string> = Map({
   strike: 'STRIKETHROUGH',
   strong: 'BOLD',
   u: 'UNDERLINE',
+  mark: 'HIGHLIGHT',
 });
 
 type BlockTypeMap = Map<string, string | Array<string>>;
@@ -158,7 +157,7 @@ const isValidImage = (node: Node): boolean => {
 /**
  * Determine if a nodeName is a list type, 'ul' or 'ol'
  */
-const isListNode = (nodeName: string): boolean =>
+const isListNode = (nodeName: ?string): boolean =>
   nodeName === 'ul' || nodeName === 'ol';
 
 /**
@@ -206,30 +205,30 @@ class ContentBlocksBuilder {
 
   // The following attributes are used to accumulate text and styles
   // as we are walking the HTML node tree.
-  characterList: List<CharacterMetadata>;
-  currentBlockType: string;
-  currentDepth: number;
-  currentEntity: ?string;
-  currentStyle: DraftInlineStyle;
-  currentText: string;
-  wrapper: string;
+  characterList: List<CharacterMetadata> = List();
+  currentBlockType: string = 'unstyled';
+  currentDepth: number = -1;
+  currentEntity: ?string = null;
+  currentStyle: DraftInlineStyle = OrderedSet();
+  currentText: string = '';
+  wrapper: ?string = null;
 
   // Describes the future ContentState as a tree of content blocks
-  blockConfigs: Array<ContentBlockConfig>;
+  blockConfigs: Array<ContentBlockConfig> = [];
 
   // The content blocks generated from the blockConfigs
-  contentBlocks: Array<BlockNodeRecord>;
+  contentBlocks: Array<BlockNodeRecord> = [];
 
   // Entity map use to store links and images found in the HTML nodes
-  entityMap: EntityMap;
+  entityMap: EntityMap = DraftEntity;
 
   // Map HTML tags to draftjs block types and disambiguation function
   blockTypeMap: BlockTypeMap;
-  disambiguate: (string, string) => ?string;
+  disambiguate: (string, ?string) => ?string;
 
   constructor(
     blockTypeMap: BlockTypeMap,
-    disambiguate: (string, string) => ?string,
+    disambiguate: (string, ?string) => ?string,
   ): void {
     this.clear();
     this.blockTypeMap = blockTypeMap;
@@ -248,7 +247,7 @@ class ContentBlocksBuilder {
     this.currentStyle = OrderedSet();
     this.currentText = '';
     this.entityMap = DraftEntity;
-    this.wrapper = 'ul';
+    this.wrapper = null;
     this.contentBlocks = [];
   }
 
@@ -420,6 +419,11 @@ class ContentBlocksBuilder {
         continue;
       }
 
+      if (nodeName === 'br') {
+        this._addBreakNode(node);
+        continue;
+      }
+
       if (isValidImage(node)) {
         this._addImgNode(node);
         continue;
@@ -508,6 +512,13 @@ class ContentBlocksBuilder {
     }
 
     this._appendText(text);
+  }
+
+  _addBreakNode(node: Node) {
+    if (!(node instanceof HTMLBRElement)) {
+      return;
+    }
+    this._appendText('\n');
   }
 
   /**
@@ -700,7 +711,7 @@ class ContentBlocksBuilder {
  * Converts an HTML string to an array of ContentBlocks and an EntityMap
  * suitable to initialize the internal state of a Draftjs component.
  */
-const convertFromHTMLtoContentBlocks = (
+const convertFromHTMLToContentBlocks = (
   html: string,
   DOMBuilder: Function = getSafeBodyFromHTML,
   blockRenderMap?: DraftBlockRenderMap = DefaultDraftBlockRenderMap,
@@ -728,7 +739,7 @@ const convertFromHTMLtoContentBlocks = (
 
   // Select the proper block type for the cases where the blockRenderMap
   // uses multiple block types for the same html tag.
-  const disambiguate = (tag, wrapper) => {
+  const disambiguate = (tag: string, wrapper: ?string): ?string => {
     if (tag === 'li') {
       return wrapper === 'ol' ? 'ordered-list-item' : 'unordered-list-item';
     }
@@ -740,4 +751,4 @@ const convertFromHTMLtoContentBlocks = (
     .getContentBlocks();
 };
 
-module.exports = convertFromHTMLtoContentBlocks;
+module.exports = convertFromHTMLToContentBlocks;

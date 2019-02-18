@@ -1,10 +1,8 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
  * @format
  * @flow
@@ -87,7 +85,7 @@ class DraftEditorBlock extends React.Component<Props> {
    * When a block is mounted and overlaps the selection state, we need to make
    * sure that the cursor is visible to match native behavior. This may not
    * be the case if the user has pressed `RETURN` or pasted some content, since
-   * programatically creating these new blocks and setting the DOM selection
+   * programmatically creating these new blocks and setting the DOM selection
    * will miss out on the browser natively scrolling to that position.
    *
    * To replicate native behavior, if the block overlaps the selection state
